@@ -1,5 +1,6 @@
 precision highp float;
 uniform float time;
+uniform float scrollY;
 varying vec2 vUv;
 
 //
@@ -111,9 +112,9 @@ void main() {
   vec2 nv = uv * 2.0 - 1.0;    
   vec3 color_1 = vec3(45.0 / 255.0,70.0 / 255.0,185.0 / 255.0);
   vec3 color_2 = vec3(240.0 / 255.0,55.0 / 255.0,105.0 / 255.0);
-  float scroll = 3000.0;
+  float scroll = scrollY / 3000.0;
   float noise_base = (snoise(vec3(nv.x * 1000.0,nv.y * 1000.0,time)) + 1.0) / 2.0 * 0.1;
   float noise_base2 = (snoise(vec3(nv.x,nv.y / 3.0 - scroll - time / 30.0,time / 30.0)) + 1.0) / 2.0;
   vec3 color = mix(color_1,color_2,vec3(noise_base2)) + vec3(noise_base);
-  gl_FragColor = vec4(color,1.0);
+  gl_FragColor = vec4(color,0.1);
 }
