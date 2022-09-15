@@ -48,7 +48,7 @@ export default class ThreeBase {
         });                        
 
         this.renderer.setSize(window.innerWidth,window.outerHeight);
-        this.renderer.setClearColor(0xffffff,0);
+        this.renderer.setClearColor(0x000000,0);
 
         this.el.appendChild(this.renderer.domElement);   
         
