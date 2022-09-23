@@ -1,130 +1,229 @@
 import {CircleGeometry,Group,Mesh,RawShaderMaterial,DoubleSide} from 'three';
 import ThreeBase from './threeBase';
+import {gsap,Sine} from 'gsap';
 
 import fragmentShader from './glsl/frag.glsl';
 import vertexShader from './glsl/vert.glsl';
 
 export default class Canvas extends ThreeBase {
     constructor(canvasEl) {        
-        super(canvasEl); 
+        super(canvasEl);        
         
-        
-        this.cubeState = {
-            layerNumber: 20,
-            radius: window.innerHeight / 5,
-            opacity: .1,
-            color1: {r:1,g:0,b:0},
-            color2: {r:0,g:0,b:2},
+        this.cubes = new Map();
+        this.cubeOptions = new Map();
+        this.sceneState = {
+            cubeNumber: 2,
+            lastcolor1: {r:1,g:0,b:0},
+            lastcolor2: {r:1,g:1,b:0},
+            lastcolor3: {r:1,g:0,b:1},
         }
-
-        this.cubes = [];        
+        this.state.colorProgress = 0;
 
         if(this.debug) {
-            this.guiCubeBase = this.gui.addFolder('CubeBase')
-            this.guiCubeBase
-                .add(this.cubeState,'layerNumber')
-                .onFinishChange(() => {
-                        this.cubes.forEach( cube => {                            
-                            cube.removeFromParent();
-                            cube = null;
-                        })
-                        this.cube = [];
-                        this.createCube();
-                });
-            this.guiCubeBase
-                .add(this.cubeState,'radius')
-                .onFinishChange(() => {
-                    this.cubes.forEach( cube => {                            
-                        cube.removeFromParent();
-                        cube = null;
-                    })
-                    this.cube = [];
-                    this.createCube();
-                });     
-            this.guiCubeBase
-                .add(this.cubeState,'opacity')
-                .onFinishChange((opacity) => {
-                    this.cubes.forEach(cube => {
-                        cube.children.forEach(layer => {
-                            layer.material.uniforms.opacity.value = opacity;
-                        })
-                    })
+            this.gui
+            .addColor(this.sceneState,'lastcolor1')
+            .onFinishChange((color) => {
+                cube.children.forEach(layer => {
+                    layer.material.uniforms.lastcolor1.value = {...color};
                 })     
-            this.guiCubeBase
-                .addColor(this.cubeState,'color1')
-                .onChange((color) => {
-                    console.log(color);
-                    this.cubes.forEach(cube => {
-                        cube.children.forEach(layer => {
-                            layer.material.uniforms.color1.value = {...color};
-                        })
-                    })                    
-                })
-            this.guiCubeBase
-                .addColor(this.cubeState,'color2')
-                .onChange((color) => {
-                    console.log(color);
-                    this.cubes.forEach(cube => {
-                        cube.children.forEach(layer => {
-                            layer.material.uniforms.color2.value = {...color};
-                        })
-                    })                    
-                })
+            })   
+            this.gui
+            .addColor(this.sceneState,'lastcolor2')
+            .onFinishChange((color) => {
+                cube.children.forEach(layer => {
+                    layer.material.uniforms.lastcolor2.value = {...color};
+                })     
+            })   
+            this.gui
+            .addColor(this.sceneState,'lastcolor3')
+            .onFinishChange((color) => {
+                cube.children.forEach(layer => {
+                    layer.material.uniforms.lastcolor3.value = {...color};
+                })     
+            })   
         }
 
+        this.cubeGroup = new Group();
+    
         this.createMesh();
-        this.startAnim();
-        
+        this.event();
+        this.startAnim();    
     }
-    createCube() {
-        const geometry = new CircleGeometry(1,Math.floor(this.cubeState.radius / 4));
+    createCube(name) {     
+        let state = this.cubeOptions.get(name);
+        const isInit = (!state) ? true : false;
+        if(isInit) {
+            state = {            
+                layerNumber: 20,
+                radius: window.innerHeight / 7,
+                opacity: .15,
+                color1: {r:1,g:0,b:0},
+                color2: {r:0,g:1,b:3},                                    
+            }
+        }       
+
+        this.cubeOptions.set(name,state);
+
+        const geometry = new CircleGeometry(1,Math.floor(state.radius / 4));
         const materilal = new RawShaderMaterial({
             uniforms: {                
                 time: { value: 0 },
                 scrollY: {value:0},
-                opacity: {value:this.cubeState.opacity},
-                color1: {value:{...this.cubeState.color1}},
-                color2: {value:{...this.cubeState.color2}},                
+                opacity: {value:state.opacity},
+                color1: {value:{...state.color1}},
+                color2: {value:{...state.color2}},
+                blend: {value: this.state.colorProgress},
+                lastcolor1: {value:this.sceneState.lastcolor1},
+                lastcolor2: {value:this.sceneState.lastcolor2},
+                lastcolor3: {value:this.sceneState.lastcolor3},
             },        
             color: 0xffffff,    
             transparent: true,
-            opacity: this.cubeState.opacity,
+            opacity: state.opacity,
             vertexShader,            
             fragmentShader,          
             side: DoubleSide,
         });
         const cube = new Group();
+        cube.name = name;
 
-        const layerNumber = this.cubeState.layerNumber;
-        const radius = this.cubeState.radius;
+        const layerNumber = state.layerNumber;
+        const radius = state.radius;
         const layerSpace = radius * 2 / layerNumber;
         for(let i = 0; i <= layerNumber; i++) {            
-            const size = this.cubeState.radius * Math.sin(Math.acos(Math.abs(i / layerNumber * 2 - 1)));
+            const size = state.radius * Math.sin(Math.acos(Math.abs(i / layerNumber * 2 - 1)));
             const postion_z = layerSpace * i - radius;
             const layer = new Mesh(geometry,materilal.clone());
             layer.material.uniforms.layerProgress = {
                 value: i / layerNumber
             }
 
-            layer.scale.set(size,size,1);       
+            layer.scale.set(size,size,1);
             layer.position.z = postion_z;
+            layer.rotation.y = Math.PI / 720 * i;            
             cube.add(layer);                 
         }
-        this.cubes.push(cube);
-        this.scene.add(cube);        
+        
+        this.cubes.set(name,cube);        
+
+        if(isInit && this.debug) {
+            this.addCubeGui(name,state);
+        }        
+
+        return cube;
     }
-    createMesh() {
-        this.createCube();
+    addCubeGui(name,state) {
+        const cubeOption = this.gui.addFolder(name);        
+        let cube = this.cubes.get(name);
+        cubeOption
+            .add(state,'layerNumber')
+            .onFinishChange(() => {                    
+                cube.removeFromParent();
+                this.cubes.delete(name);
+                cube = null;
+                const new_cube = this.createCube(name);
+                this.cubeGroup.add(new_cube);
+
+            });
+        cubeOption
+            .add(state,'radius')
+            .onFinishChange(() => {
+                cube.removeFromParent();
+                this.cubes.delete(name);
+                cube = null;
+                const new_cube = this.createCube(name);
+                this.cubeGroup.add(new_cube);        
+            });     
+        cubeOption
+            .add(state,'opacity')
+            .onFinishChange((opacity) => {
+                cube.children.forEach(layer => {
+                    layer.material.uniforms.opacity.value = opacity;
+                })
+            })     
+        cubeOption
+            .addColor(state,'color1')
+            .onChange((color) => {                
+                cube.children.forEach(layer => {
+                    layer.material.uniforms.color1.value = {...color};
+                })                 
+            })
+        cubeOption
+            .addColor(state,'color2')
+            .onChange((color) => {                
+                cube.children.forEach(layer => {                    
+                    layer.material.uniforms.color2.value = {...color};
+                })                
+            })        
 
     }
+    createMesh() {
+        for(let i = 0; i < this.sceneState.cubeNumber; i++) {
+            const name = `cube-${i + 1}`;
+            const cube = this.createCube(name); 
+            cube.position.x = 500 * i - 250;        
+            this.cubeGroup.add(cube);
+        }        
+        this.scene.add(this.cubeGroup)
+    }
     update() {
-        this.cubes.forEach( cube => {
+        let i = 0;
+        this.cubes.forEach( (cube) => {            
             cube.rotation.x = Math.PI / 5;        
             cube.rotation.z = Math.PI / 4 + this.state.currentTime;
-            cube.rotation.y = this.state.currentTime        
-            // cube.materilal.uniforms.opacity.value = this.cubeState.opacity;
+            cube.rotation.y = this.state.currentTime;
+            i++;      
         });        
     }    
+    event() {
+        document.getElementById('btn-start')?.addEventListener('click', e => {
+            const duration = 3;            
+            gsap.to(this.state, {
+                colorProgress: 1,
+                duration: duration,
+                ease: Sine.easeInOut,
+                onUpdate: () => {
+                    this.cubes.forEach(cube => {
+                        cube.children.forEach(layer => {                    
+                            layer.material.uniforms.blend.value = this.state.colorProgress;
+                        })                             
+                    })
+                },
+            })
+            gsap.to(this.cubeGroup.rotation, {
+                y: Math.PI * 4,
+                duration: duration,
+                ease: Sine.easeInOut,
+            })
+
+            this.cubes.forEach(({position,rotation}) => {                
+                gsap.to(position, {
+                    x: 0,
+                    duration: duration,                    
+                    ease: Sine.easeOut,
+                })                
+            })
+        })
+        document.getElementById('btn-reset')?.addEventListener('click', e => {
+            const duration = 3;            
+            gsap.set(this.state, {
+                colorProgress: 0,
+                duration: duration,
+                ease: Sine.easeInOut,
+            })
+            let i = 0;
+            this.cubes.forEach(cube => {
+                cube.position.x = 500 * i - 250;
+                cube.children.forEach(layer => {                    
+                    layer.material.uniforms.blend.value = 0;
+                })               
+                i++;              
+            })            
+            gsap.set(this.cubeGroup.rotation, {
+                y: 0,
+            })
+        })
+    }
     resizeEvent() {
 
     }

@@ -91,7 +91,7 @@ export default class ThreeBase {
         this.state.currentTime = (Date.now() - this.state.startTime) / 1000;        
     }
 
-    render() {
+    render() {        
         this.renderer.render(this.scene,this.camera);
     }
 
