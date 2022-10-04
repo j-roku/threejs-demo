@@ -12,7 +12,7 @@ export default class Canvas extends ThreeBase {
         this.cubes = new Map();
         this.cubeOptions = new Map();
         this.sceneState = {
-            cubeNumber: 2,
+            cubeNumber: 1,
             lastcolor1: {r:1,g:0,b:0},
             lastcolor2: {r:1,g:1,b:0},
             lastcolor3: {r:1,g:0,b:1},
@@ -54,17 +54,18 @@ export default class Canvas extends ThreeBase {
         const isInit = (!state) ? true : false;
         if(isInit) {
             state = {            
-                layerNumber: 20,
-                radius: window.innerHeight / 6,
+                layerNumber: 25,
+                radius: window.innerHeight / 4,
                 opacity: .15,
                 color1: {r:1,g:0,b:0},
-                color2: {r:0,g:1,b:3},                                    
+                color2: {r:0,g:1,b:3},
+                layerDistortion: 15,
             }
         }       
 
         this.cubeOptions.set(name,state);
 
-        const geometry = new CircleGeometry(1,Math.floor(state.radius / 6));
+        const geometry = new CircleGeometry(1,Math.floor(state.radius / 4));
         const materilal = new RawShaderMaterial({
             uniforms: {                
                 time: { value: 0 },
@@ -85,6 +86,7 @@ export default class Canvas extends ThreeBase {
             side: DoubleSide,
         });
         const cube = new Group();
+        console.log('createvubt',name);
         cube.name = name;
 
         const layerNumber = state.layerNumber;
@@ -92,20 +94,22 @@ export default class Canvas extends ThreeBase {
         const layerSpace = radius * 2 / layerNumber;
         for(let i = 0; i <= layerNumber; i++) {            
             const size = state.radius * Math.sin(Math.acos(Math.abs(i / layerNumber * 2 - 1)));
-            const postion_z = layerSpace * i - radius;
-            const layerRotation = Math.abs(((i / layerNumber) * 2 - 1) * (Math.PI / 180 * 17));
-            const diff = Math.sin(layerRotation) * postion_z;
+            const postion_z = layerSpace * i - radius;                        
+            const layerRotation = ((i / layerNumber) * 2 - 1) * (Math.PI / 180 * state.layerDistortion);
+            const diff = Math.sin(Math.abs(layerRotation)) * postion_z;
+            const diffZ = diff / Math.tan(Math.abs(layerRotation));                        
             const layer = new Mesh(geometry,materilal.clone());
+            
             layer.material.uniforms.layerProgress = {
                 value: i / layerNumber
             }
 
             layer.scale.set(size,size,1);
-            layer.rotation.y = layerRotation;      
-            layer.rotation.x = layerRotation;
-            layer.position.z = postion_z;            
+            layer.rotation.y = Math.abs(layerRotation);      
+            layer.rotation.x = Math.abs(layerRotation);                        
+            layer.position.z = postion_z - (postion_z - diffZ);
             layer.position.x = diff;
-            layer.position.y = -diff            
+            layer.position.y = -diff
             cube.add(layer);                 
         }
         
@@ -128,6 +132,26 @@ export default class Canvas extends ThreeBase {
                 cube = null;
                 const new_cube = this.createCube(name);
                 this.cubeGroup.add(new_cube);
+
+            });
+        cubeOption
+            .add(state,'layerDistortion')
+            .onChange(() => {                     
+
+                const layerNumber = state.layerNumber;
+                const radius = state.radius;
+                const layerSpace = radius * 2 / layerNumber;                
+                cube.children.forEach((layer,i) => {                                                                                
+                    const layerRotation = ((i / layerNumber) * 2 - 1) * (Math.PI / 180 * state.layerDistortion);
+                    const postion_z = layerSpace * i - radius;            
+                    const diff = Math.sin(Math.abs(layerRotation)) * postion_z;                    
+                    const diffZ = diff / Math.tan(Math.abs(layerRotation));          
+                    layer.rotation.y = Math.abs(layerRotation);      
+                    layer.rotation.x = Math.abs(layerRotation);                        
+                    layer.position.x = diff;
+                    layer.position.z = postion_z - (postion_z - diffZ);
+                    layer.position.y = -diff                                          
+                })
 
             });
         cubeOption
@@ -165,20 +189,21 @@ export default class Canvas extends ThreeBase {
     createMesh() {
         for(let i = 0; i < this.sceneState.cubeNumber; i++) {
             const name = `cube-${i + 1}`;
-            const cube = this.createCube(name); 
-            cube.position.x = 500 * i - 250;        
+            const cube = this.createCube(name);             
             this.cubeGroup.add(cube);
         }        
         this.scene.add(this.cubeGroup)
     }
     update() {
-        let i = 0;
-        this.cubes.forEach( (cube) => {            
-            cube.rotation.x = Math.PI / 5;        
-            cube.rotation.z = Math.PI / 4 + this.state.currentTime;
-            cube.rotation.y = this.state.currentTime;
-            i++;      
-        });        
+        // let i = 0;
+        // this.cubes.forEach( (cube) => {            
+        //     cube.rotation.x = this.state.currentTime / 5;
+        //     cube.rotation.y = this.state.currentTime / 2;            
+        //     i++;      
+        // });
+
+        // this.camera.position.set(0,1000,0);
+        // this.camera.lookAt(0,0,0);
     }    
     event() {
         document.getElementById('btn-start')?.addEventListener('click', e => {
@@ -218,7 +243,7 @@ export default class Canvas extends ThreeBase {
             })
             let i = 0;
             this.cubes.forEach(cube => {
-                cube.position.x = 500 * i - 250;
+                cube.position.x = 0;
                 cube.children.forEach(layer => {                    
                     layer.material.uniforms.blend.value = 0;
                 })               
